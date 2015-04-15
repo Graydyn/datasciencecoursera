@@ -1,0 +1,53 @@
+---
+title: "pml"
+author: "Graydyn Young"
+date: "April 15, 2015"
+output: html_document
+---
+
+The objective of this document is to determine how well a person is doing a bicep curl based off of accelerometer data.  We will be predicting 5 classes of curls, with class A representing good form, while classes B-E represent various common problems.
+
+Starting by loading our data, removing all those pesky NAs, and then splitting the training set into train and cross validation sets.
+I'm also removing any variables that don't look like predictors, such as timestamps.
+```{r}
+library(caret)
+set.seed(1234)
+trainFull <- read.csv("pml-training.csv")
+test <- read.csv("pml-testing.csv")
+
+#remove NA
+trainFull <- trainFull[, colSums(is.na(trainFull)) == 0] 
+test <- test[, colSums(is.na(test)) == 0] 
+
+#remove the index (X), timestamps, and whatever 'window' is
+classe <- trainFull$classe
+remove <- grepl("^X|timestamp|window", names(trainFull))
+trainFull <- trainFull[, !remove]
+trainFull <- trainFull[, sapply(trainFull, is.numeric)]
+trainFull$classe <- classe #need to put the classe back, since it isn't numeric
+remove <- grepl("^X|timestamp|window", names(test))
+test <- test[, !remove]
+test <- test[, sapply(test, is.numeric)]
+
+partition <- createDataPartition(trainFull$classe, p = .7,list = FALSE,times = 1)
+train <- trainFull[partition, ]
+cv <- trainFull[-partition,]
+```
+
+Lets train a model.  Starting with random forest.
+```{r}
+rfModel <- train(classe ~ ., data=train, method = "rf")
+```
+
+```{r}
+rfPrediction <- predict(rfModel, cv)
+print(paste("random forest - accuracy", toString(sum(cv$classe == rfPrediction) / nrow(cv)), " -expected out of sample error", toString(1 - sum(cv$classe == rfPrediction) / nrow(cv))))
+```
+
+I was going to try some other models as well, but I tried "rf" first and it seems highly unlikely that I'll find a better cross validation error rate than that.
+
+Since the random forest performed so well, I'll use that to make my test predictions.
+
+```{r}
+testPredict <- predict(rfModel, test)
+```
